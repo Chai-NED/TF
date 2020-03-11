@@ -1,4 +1,4 @@
-# TF - sample Terraform scripts
+# TF - Sample Terraform scripts
 
 # Use them at your own risk
 
