@@ -192,7 +192,7 @@ data "azurerm_storage_account_sas" "diagnostics" {
 }
 
 data "template_file" "settings" {
-  template = "${file("${path.module}/diagnostics/settings3.x.json.tpl")}"
+  template = "${file("${path.module}/settings3.x.json.tpl")}"
   vars = {
     diag_storage_name = "${data.azurerm_storage_account.test.name}"
     virtual_machine_id = "${azurerm_virtual_machine.linux.id}"
@@ -201,7 +201,7 @@ data "template_file" "settings" {
 
 
 data "template_file" "protected_settings" {
-  template = "${file("${path.module}/diagnostics/protected_settings3.0.json.tpl")}"
+  template = "${file("${path.module}/protected_settings3.0.json.tpl")}"
 
   vars = {
     diag_storage_name               = "${data.azurerm_storage_account.test.name}"
