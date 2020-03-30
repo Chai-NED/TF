@@ -6,6 +6,8 @@ provider "azurerm" {
     subscription_id = ""
    
     tenant_id       = ""
+    version = "=2.0.0"
+    features {}
 }
 
 # Resource location
@@ -92,42 +94,38 @@ resource "azurerm_network_interface" "nic" {
 }
 
 
-resource "azurerm_virtual_machine" "linux" {
+resource "azurerm_linux_virtual_machine" "linux" {
     name                  = "myVM3"
     location              = "${var.service_location}"
     resource_group_name   = "${data.azurerm_resource_group.test.name}"
     network_interface_ids = ["${azurerm_network_interface.nic.id}"]
-    vm_size               = "Standard_DS1_v2"
+    
+    
+    size               = "Standard_DS1_v2"
+    computer_name  = "<your vm name"
+    admin_username = "<your admin>"
+    admin_password = "${data.azurerm_key_vault_secret.Secret.value}"
+    disable_password_authentication = false
+ 
 
     storage_os_disk {
         name              = "myOsDisk3"
         caching           = "ReadWrite"
-        create_option     = "FromImage"
-        managed_disk_type = "Premium_LRS"
+        
+        storage_account_type = "Premium_LRS"
     }
 
-    storage_image_reference {
+    source_image_reference {
         publisher = "Canonical"
         offer     = "UbuntuServer"
         sku       = "16.04.0-LTS"
         version   = "latest"
     }
 
-    os_profile {
-        computer_name  = "chaimmavm"
-        admin_username = "chaiadmin"
-        admin_password = "${data.azurerm_key_vault_secret.Secret.value}"
-        
-    }
 
-    os_profile_linux_config {
-        
-        disable_password_authentication = false
-        
-    }
 
     boot_diagnostics {
-        enabled     = "true"
+        
         storage_uri = "${data.azurerm_storage_account.test.primary_blob_endpoint}"
     }
 
@@ -195,7 +193,7 @@ data "template_file" "settings" {
   template = "${file("${path.module}/settings3.x.json.tpl")}"
   vars = {
     diag_storage_name = "${data.azurerm_storage_account.test.name}"
-    virtual_machine_id = "${azurerm_virtual_machine.linux.id}"
+    virtual_machine_id = "${zurerm_linux_virtual_machine.linux.id}"
   }
 }
 
@@ -214,20 +212,19 @@ data "template_file" "protected_settings" {
 
 resource "azurerm_virtual_machine_extension" "vmdiagextension" {
   name                       = "diagextension"
-  resource_group_name        = "${data.azurerm_resource_group.test.name}"
-  location                   = "${var.service_location}"
-  virtual_machine_name       = "${azurerm_virtual_machine.linux.name}"
+  
+  virtual_machine_id         = "${azurerm_linux_virtual_machine.linux.id}"
   publisher = "Microsoft.Azure.Diagnostics"
   type                       = "LinuxDiagnostic"
   type_handler_version       = "3.0"
   auto_upgrade_minor_version = true
-  depends_on                 = [azurerm_virtual_machine.linux] 
+  depends_on                 = [azurerm_linux_virtual_machine.linux]
   settings           = "${data.template_file.settings.rendered}"
   protected_settings = "${data.template_file.protected_settings.rendered}"
   
 }
 output "virtual_machine" {
-  value = "${azurerm_virtual_machine.linux.id}"
+  value = "${azurerm_linix_virtual_machine.linux.id}"
 }
 
 output "workspace_id" {
@@ -241,9 +238,8 @@ output "workspace_key" {
 
 resource "azurerm_virtual_machine_extension" "MMA" {
   name = "AzureMonitorAgent1"
-  location             = "${var.service_location}"
-  resource_group_name  = "${data.azurerm_resource_group.test.name}"
-  virtual_machine_name = "${azurerm_virtual_machine.linux.name}"
+ 
+  virtual_machine_id         = "${azurerm_linux_virtual_machine.linux.id}"
   publisher            = "Microsoft.EnterpriseCloud.Monitoring"
   type                 = "OmsAgentForLinux"
   type_handler_version = "1.9"
@@ -262,4 +258,17 @@ resource "azurerm_virtual_machine_extension" "MMA" {
           "workspaceKey": "${azurerm_log_analytics_workspace.test.primary_shared_key }"
         }
         PROTECTED_SETTINGS
+}
+
+resource "azurerm_virtual_machine_extension" "dependencyAgent" {
+  name                       = "dependencyAgent1"
+
+ 
+  virtual_machine_id         = "${azurerm_linux_virtual_machine.linux.id}"
+  publisher = "Microsoft.Azure.Monitoring.DependencyAgent"
+  type                       = "DependencyAgentLinux"
+  type_handler_version       = "9.10"
+  auto_upgrade_minor_version = true
+  depends_on                 = [azurerm_virtual_machine_extension.MMA]
+  
 }
